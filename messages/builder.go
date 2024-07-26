@@ -8,3 +8,12 @@ func NewTextMsg(text string) Message {
 		Data: msg.Data,
 	}
 }
+
+func NewFaceMsg(faceId string) Message {
+	msg := new(FaceMessage)
+	msg.Data.Id = faceId
+	return Message{
+		Type: "face",
+		Data: msg.Data,
+	}
+}

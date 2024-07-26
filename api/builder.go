@@ -6,12 +6,15 @@ type IAction interface {
 }
 
 type ActionStruct struct {
+	apiUrl string
 	action string
 	params map[string]interface{}
 }
 
-func Build() *ActionStruct {
-	return new(ActionStruct)
+func Build(apiUrl string) *ActionStruct {
+	action := new(ActionStruct)
+	action.apiUrl = apiUrl
+	return action
 }
 
 func (a *ActionStruct) GetAction() string {

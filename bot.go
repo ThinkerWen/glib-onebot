@@ -95,23 +95,23 @@ func (bot *Bot) readMessages(ctx context.Context) {
 		default:
 		}
 
-		event, err := events.New(message)
+		event, name, err := events.New(message)
 		if err != nil {
 			log.Error("事件创建错误:", err)
 			continue
 		}
 
-		bot.executeCallbacks(ctx, event)
+		bot.executeCallbacks(ctx, name, event)
 	}
 }
 
 // executeCallbacks executes registered callbacks for the given event.
-func (bot *Bot) executeCallbacks(ctx context.Context, event events.IEvent) {
+func (bot *Bot) executeCallbacks(ctx context.Context, eventName events.EventName, event events.IEvent) {
 	bot.lock.RLock()
-	callbacks := bot.events[event.GetEventName()]
+	callbacks := bot.events[eventName]
 	bot.lock.RUnlock()
 
-	log.Debug("正在执行事件的回调: " + event.GetEventName())
+	log.Debug("正在执行事件的回调: " + eventName)
 	for _, callback := range callbacks {
 		go callback(ctx, event)
 	}

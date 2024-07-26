@@ -10,10 +10,20 @@ type EventName string
 type EventCallbackFunc func(ctx context.Context, event IEvent)
 
 const (
-	OnMessageEvent EventName = "message"
-	OnRequestEvent EventName = "request"
-	OnNoticeEvent  EventName = "notice"
-	OnMetaEvent    EventName = "meta_event"
+	OnPrivateMessageEvent EventName = "friend"
+	OnGroupMessageEvent   EventName = "group"
+	OnFriendRequestEvent  EventName = "friend"
+	OnGroupRequestEvent   EventName = "group"
+	OnGroupUploadEvent    EventName = "group_upload"
+	OnGroupAdminEvent     EventName = "group_admin"
+	OnGroupDecreaseEvent  EventName = "group_decrease"
+	OnGroupIncreaseEvent  EventName = "group_increase"
+	OnGroupBanEvent       EventName = "group_ban"
+	OnFriendAddEvent      EventName = "friend_add"
+	OnFriendRecallEvent   EventName = "friend_recall"
+	OnNotifyEvent         EventName = "notify"
+	OnLifecycleEvent      EventName = "lifecycle"
+	OnHeartbeatEvent      EventName = "heartbeat"
 )
 
 // IEvent 定义了所有事件类型都需要实现的接口
@@ -31,46 +41,46 @@ type BaseEvent struct {
 }
 
 // New 解析 JSON 数据并返回适当的 IEvent 实现
-func New(data []byte) (IEvent, error) {
+func New(data []byte) (IEvent, EventName, error) {
 	var base BaseEvent
 	if err := json.Unmarshal(data, &base); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	unmarshalEvent := func(event IEvent) (IEvent, error) {
+	unmarshalEvent := func(name EventName, event IEvent) (IEvent, EventName, error) {
 		if err := json.Unmarshal(data, event); err != nil {
-			return nil, err
+			return nil, "", err
 		}
-		return event, nil
+		return event, name, nil
 	}
 
-	eventTypeMap := map[EventName]map[string]func() IEvent{
-		OnMessageEvent: {
-			"friend": func() IEvent { return &PrivateMessageEvent{} },
-			"group":  func() IEvent { return &GroupMessageEvent{} },
+	eventTypeMap := map[string]map[EventName]func() IEvent{
+		"message": {
+			OnPrivateMessageEvent: func() IEvent { return &PrivateMessageEvent{} },
+			OnGroupMessageEvent:   func() IEvent { return &GroupMessageEvent{} },
 		},
-		OnRequestEvent: {
-			"friend": func() IEvent { return &FriendRequestEvent{} },
-			"group":  func() IEvent { return &GroupRequestEvent{} },
+		"request": {
+			OnFriendRequestEvent: func() IEvent { return &FriendRequestEvent{} },
+			OnGroupRequestEvent:  func() IEvent { return &GroupRequestEvent{} },
 		},
-		OnNoticeEvent: {
-			"group_upload":   func() IEvent { return &GroupUploadEvent{} },
-			"group_admin":    func() IEvent { return &GroupAdminEvent{} },
-			"group_decrease": func() IEvent { return &GroupDecreaseEvent{} },
-			"group_increase": func() IEvent { return &GroupIncreaseEvent{} },
-			"group_ban":      func() IEvent { return &GroupBanEvent{} },
-			"friend_add":     func() IEvent { return &FriendAddEvent{} },
-			"friend_recall":  func() IEvent { return &FriendRecallEvent{} },
-			"notify":         func() IEvent { return &NotifyEvent{} },
+		"notice": {
+			OnGroupUploadEvent:   func() IEvent { return &GroupUploadEvent{} },
+			OnGroupAdminEvent:    func() IEvent { return &GroupAdminEvent{} },
+			OnGroupDecreaseEvent: func() IEvent { return &GroupDecreaseEvent{} },
+			OnGroupIncreaseEvent: func() IEvent { return &GroupIncreaseEvent{} },
+			OnGroupBanEvent:      func() IEvent { return &GroupBanEvent{} },
+			OnFriendAddEvent:     func() IEvent { return &FriendAddEvent{} },
+			OnFriendRecallEvent:  func() IEvent { return &FriendRecallEvent{} },
+			OnNotifyEvent:        func() IEvent { return &NotifyEvent{} },
 		},
-		OnMetaEvent: {
-			"lifecycle": func() IEvent { return &LifecycleEvent{} },
-			"heartbeat": func() IEvent { return &HeartbeatEvent{} },
+		"meta_event": {
+			OnLifecycleEvent: func() IEvent { return &LifecycleEvent{} },
+			OnHeartbeatEvent: func() IEvent { return &HeartbeatEvent{} },
 		},
 	}
 
 	// 获取事件类型和子类型的映射
-	if subEventMap, ok := eventTypeMap[base.GetEventName()]; ok {
+	if subEventMap, ok := eventTypeMap[base.PostType]; ok {
 		var subtype string
 		var subtypes struct {
 			MessageType   string `json:"message_type"`
@@ -79,25 +89,25 @@ func New(data []byte) (IEvent, error) {
 			MetaEventType string `json:"meta_event_type"`
 		}
 		if err := json.Unmarshal(data, &subtypes); err != nil {
-			return nil, err
+			return nil, "", err
 		}
-		switch base.GetEventName() {
-		case OnMessageEvent:
+		switch base.PostType {
+		case "message":
 			subtype = subtypes.MessageType
-		case OnRequestEvent:
+		case "request":
 			subtype = subtypes.RequestType
-		case OnNoticeEvent:
+		case "notice":
 			subtype = subtypes.NoticeType
-		case OnMetaEvent:
+		case "meta_event":
 			subtype = subtypes.MetaEventType
 		}
 
-		if eventFunc, ok := subEventMap[subtype]; ok {
-			return unmarshalEvent(eventFunc())
+		if eventFunc, ok := subEventMap[EventName(subtype)]; ok {
+			return unmarshalEvent(EventName(subtype), eventFunc())
 		}
-		return nil, errors.New("未知的子事件类型")
+		return nil, "", errors.New("未知的子事件类型")
 	}
-	return nil, errors.New("未知的事件类型")
+	return nil, "", errors.New("未知的事件类型")
 }
 
 func (b *BaseEvent) GetTime() int64 {
@@ -110,8 +120,4 @@ func (b *BaseEvent) GetSelfId() int64 {
 
 func (b *BaseEvent) GetEventName() EventName {
 	return EventName(b.PostType)
-}
-
-func (m *MessageEvent) AsMessageEvent() *MessageEvent {
-	return m
 }

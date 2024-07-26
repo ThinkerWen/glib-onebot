@@ -1,6 +1,8 @@
 package events
 
-import "onebot/messages"
+import (
+	"onebot/messages"
+)
 
 type MessageEvent struct {
 	BaseEvent
