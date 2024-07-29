@@ -1,4 +1,4 @@
-module onebot
+module github.com/ThinkerWen/glib-onebot
 
 go 1.22
 

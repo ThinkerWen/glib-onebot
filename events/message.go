@@ -1,7 +1,7 @@
 package events
 
 import (
-	"onebot/messages"
+	"github.com/ThinkerWen/glib-onebot/messages"
 )
 
 type MessageEvent struct {

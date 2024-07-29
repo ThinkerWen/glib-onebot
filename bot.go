@@ -6,9 +6,9 @@ import (
 	"os/signal"
 	"sync"
 
+	"github.com/ThinkerWen/glib-onebot/events"
 	"github.com/charmbracelet/log"
 	"github.com/gorilla/websocket"
-	"onebot/events"
 )
 
 type Bot struct {
@@ -20,7 +20,7 @@ type Bot struct {
 	done   chan struct{}
 }
 
-// NewBot creates a new Bot instance with the specified API URL.
+// NewBot 使用指定的 API URL 创建新的 Bot 实例。
 func NewBot(api string) (*Bot, error) {
 	log.SetLevel(log.DebugLevel)
 	return &Bot{
@@ -31,14 +31,14 @@ func NewBot(api string) (*Bot, error) {
 	}, nil
 }
 
-// On registers a callback function for a specific event.
+// On 为特定事件注册回调函数。
 func (bot *Bot) On(event events.EventName, callback events.EventCallbackFunc) {
 	bot.lock.Lock()
 	defer bot.lock.Unlock()
 	bot.events[event] = append(bot.events[event], callback)
 }
 
-// ListenAndWait connects to the WebSocket server and listens for events.
+// ListenAndWait 连接到 WebSocket 服务器并侦听事件。
 func (bot *Bot) ListenAndWait(ctx context.Context) error {
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithCancel(ctx)
@@ -74,7 +74,7 @@ func (bot *Bot) ListenAndWait(ctx context.Context) error {
 	return nil
 }
 
-// readMessages continuously reads messages from the WebSocket connection.
+// readMessages 持续从 WebSocket 连接读取消息。
 func (bot *Bot) readMessages(ctx context.Context) {
 	defer close(bot.done)
 
@@ -105,7 +105,7 @@ func (bot *Bot) readMessages(ctx context.Context) {
 	}
 }
 
-// executeCallbacks executes registered callbacks for the given event.
+// executeCallbacks 为给定事件执行已注册的回调。
 func (bot *Bot) executeCallbacks(ctx context.Context, eventName events.EventName, event events.IEvent) {
 	bot.lock.RLock()
 	callbacks := bot.events[eventName]
