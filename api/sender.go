@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/charmbracelet/log"
 	"github.com/gorilla/websocket"
 	"time"
@@ -20,36 +21,109 @@ func MarshalJSON(action ActionStruct) ([]byte, error) {
 
 type IDo interface {
 	Do(ctx context.Context) error
+	DoWithResponse(ctx context.Context) ([]byte, error)
 }
 
-func (a *ActionStruct) Do(ctx context.Context) error {
-	var err error
-	var data []byte
-	if data, err = MarshalJSON(*a); err != nil {
-		return err
-	}
-	log.Debug("正在发送: " + string(data))
-
+func (a *ActionStruct) connect(ctx context.Context) (*websocket.Conn, error) {
 	conn, _, err := websocket.DefaultDialer.DialContext(ctx, a.apiUrl, nil)
 	if err != nil {
 		log.Error("连接WebSocket错误:", err)
+		return nil, err
+	}
+	return conn, nil
+}
+
+func (a *ActionStruct) sendMessage(conn *websocket.Conn, data []byte) error {
+	if err := conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		log.Error("设置写超时错误:", err)
+		return err
+	}
+
+	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		log.Error("发送错误:", err)
+		return err
+	}
+
+	return nil
+}
+
+func (a *ActionStruct) readMessage(conn *websocket.Conn) ([]byte, error) {
+	if err := conn.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		log.Error("设置读超时错误:", err)
+		return nil, err
+	}
+
+	_, message, err := conn.ReadMessage()
+	if err != nil {
+		log.Error("读取错误:", err)
+		return nil, err
+	}
+
+	log.Debug("收到响应: " + string(message))
+	return message, nil
+}
+
+func (a *ActionStruct) Do(ctx context.Context) error {
+	data, err := MarshalJSON(*a)
+	if err != nil {
+		return err
+	}
+
+	conn, err := a.connect(ctx)
+	if err != nil {
 		return err
 	}
 	defer func(conn *websocket.Conn) {
 		_ = conn.Close()
 	}(conn)
 
-	err = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-	if err != nil {
-		log.Error("设置写超时错误:", err)
-		return err
-	}
-
-	err = conn.WriteMessage(websocket.TextMessage, data)
-	if err != nil {
-		log.Error("发送错误:", err)
+	if err := a.sendMessage(conn, data); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (a *ActionStruct) DoWithResponse(ctx context.Context) ([]byte, error) {
+	data, err := MarshalJSON(*a)
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := a.connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func(conn *websocket.Conn) {
+		_ = conn.Close()
+	}(conn)
+
+	if err := a.sendMessage(conn, data); err != nil {
+		return nil, err
+	}
+
+	responseCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	for {
+		select {
+		case <-responseCtx.Done():
+			return nil, fmt.Errorf("等待响应超时")
+		default:
+			response, err := a.readMessage(conn)
+			if err != nil {
+				return nil, err
+			}
+
+			var responseMap map[string]interface{}
+			if err := json.Unmarshal(response, &responseMap); err != nil {
+				log.Error("解析响应错误:", err)
+				return nil, err
+			}
+
+			if status, ok := responseMap["status"].(string); ok && status == "ok" {
+				return response, nil
+			}
+		}
+	}
 }
