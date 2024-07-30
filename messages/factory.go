@@ -7,7 +7,7 @@ type MsgFactory struct {
 }
 
 func MsgParser(msg Message) *MsgFactory {
-	if data, err := json.Marshal(msg); err != nil {
+	if data, err := json.Marshal(msg.Data); err != nil {
 		return nil
 	} else {
 		factory := new(MsgFactory)
