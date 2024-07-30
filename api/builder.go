@@ -25,7 +25,7 @@ func (a *ActionStruct) GetAction() string {
 	return a.action
 }
 
-// GetParams 活动动作执行所需的参数
+// GetParams 获取动作执行所需的参数
 func (a *ActionStruct) GetParams() map[string]interface{} {
 	return a.params
 }

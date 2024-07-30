@@ -9,7 +9,8 @@ import (
 	"time"
 )
 
-func MarshalJSON(action ActionStruct) ([]byte, error) {
+// 动作消息格式化方法
+func marshalJSON(action ActionStruct) ([]byte, error) {
 	return json.Marshal(&struct {
 		Action string                 `json:"action"`
 		Params map[string]interface{} `json:"params"`
@@ -19,11 +20,13 @@ func MarshalJSON(action ActionStruct) ([]byte, error) {
 	})
 }
 
+// IDo 执行动作抽象接口
 type IDo interface {
 	Do(ctx context.Context) error
 	DoWithResponse(ctx context.Context) ([]byte, error)
 }
 
+// 连接 websocket
 func (a *ActionStruct) connect(ctx context.Context) (*websocket.Conn, error) {
 	conn, _, err := websocket.DefaultDialer.DialContext(ctx, a.apiUrl, nil)
 	if err != nil {
@@ -33,6 +36,7 @@ func (a *ActionStruct) connect(ctx context.Context) (*websocket.Conn, error) {
 	return conn, nil
 }
 
+// 发送动作消息
 func (a *ActionStruct) sendMessage(conn *websocket.Conn, data []byte) error {
 	if err := conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
 		log.Error("设置写超时错误:", err)
@@ -47,6 +51,7 @@ func (a *ActionStruct) sendMessage(conn *websocket.Conn, data []byte) error {
 	return nil
 }
 
+// 读取websocket内容
 func (a *ActionStruct) readMessage(conn *websocket.Conn) ([]byte, error) {
 	if err := conn.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
 		log.Error("设置读超时错误:", err)
@@ -63,8 +68,9 @@ func (a *ActionStruct) readMessage(conn *websocket.Conn) ([]byte, error) {
 	return message, nil
 }
 
+// Do 执行动作
 func (a *ActionStruct) Do(ctx context.Context) error {
-	data, err := MarshalJSON(*a)
+	data, err := marshalJSON(*a)
 	if err != nil {
 		return err
 	}
@@ -84,8 +90,9 @@ func (a *ActionStruct) Do(ctx context.Context) error {
 	return nil
 }
 
+// DoWithResponse 执行动作（带返回值）
 func (a *ActionStruct) DoWithResponse(ctx context.Context) ([]byte, error) {
-	data, err := MarshalJSON(*a)
+	data, err := marshalJSON(*a)
 	if err != nil {
 		return nil, err
 	}
