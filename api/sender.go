@@ -30,7 +30,7 @@ type IDo interface {
 func (a *ActionStruct) connect(ctx context.Context) (*websocket.Conn, error) {
 	conn, _, err := websocket.DefaultDialer.DialContext(ctx, a.apiUrl, nil)
 	if err != nil {
-		log.Error("连接WebSocket错误:", err)
+		log.Error("连接WebSocket错误:", "err", err)
 		return nil, err
 	}
 	return conn, nil
@@ -39,12 +39,12 @@ func (a *ActionStruct) connect(ctx context.Context) (*websocket.Conn, error) {
 // 发送动作消息
 func (a *ActionStruct) sendMessage(conn *websocket.Conn, data []byte) error {
 	if err := conn.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
-		log.Error("设置写超时错误:", err)
+		log.Error("设置写超时错误:", "err", err)
 		return err
 	}
 
 	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-		log.Error("发送错误:", err)
+		log.Error("发送错误:", "err", err)
 		return err
 	}
 
@@ -54,17 +54,17 @@ func (a *ActionStruct) sendMessage(conn *websocket.Conn, data []byte) error {
 // 读取websocket内容
 func (a *ActionStruct) readMessage(conn *websocket.Conn) ([]byte, error) {
 	if err := conn.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
-		log.Error("设置读超时错误:", err)
+		log.Error("设置读超时错误:", "err", err)
 		return nil, err
 	}
 
 	_, message, err := conn.ReadMessage()
 	if err != nil {
-		log.Error("读取错误:", err)
+		log.Error("读取错误:", "err", err)
 		return nil, err
 	}
 
-	log.Debug("收到响应: " + string(message))
+	log.Debug("收到响应: ", "message", string(message))
 	return message, nil
 }
 
@@ -124,7 +124,7 @@ func (a *ActionStruct) DoWithResponse(ctx context.Context) ([]byte, error) {
 
 			var responseMap map[string]interface{}
 			if err := json.Unmarshal(response, &responseMap); err != nil {
-				log.Error("解析响应错误:", err)
+				log.Error("解析响应错误:", "err", err)
 				return nil, err
 			}
 

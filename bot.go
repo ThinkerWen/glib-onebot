@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 
 	"github.com/ThinkerWen/glib-onebot/events"
@@ -22,7 +23,6 @@ type Bot struct {
 
 // NewBot 使用指定的 API URL 创建新的 Bot 实例。
 func NewBot(api string) (*Bot, error) {
-	log.SetLevel(log.DebugLevel)
 	return &Bot{
 		API:    api,
 		events: make(map[events.EventName][]events.EventCallbackFunc),
@@ -63,7 +63,7 @@ func (bot *Bot) ListenAndWait(ctx context.Context) error {
 	}
 	defer func() {
 		if err = bot.client.Close(); err != nil {
-			log.Error("关闭连接错误:", err)
+			log.Error("关闭连接错误:", "err", err)
 		}
 	}()
 	log.Info("连接成功")
@@ -83,10 +83,10 @@ func (bot *Bot) readMessages(ctx context.Context) {
 		log.Debug("正在等待读取消息...")
 		_, message, err := bot.client.ReadMessage()
 		if err != nil {
-			log.Error("ReadMessage 错误:", err)
+			log.Error("ReadMessage 错误:", "err", err)
 			return
 		}
-		log.Debug("收到消息: " + string(message))
+		log.Debug("收到消息: ", "message", string(message))
 
 		select {
 		case <-ctx.Done():
@@ -97,7 +97,7 @@ func (bot *Bot) readMessages(ctx context.Context) {
 
 		event, name, err := events.New(message)
 		if err != nil {
-			log.Error("事件创建错误:", err)
+			log.Error("事件创建错误:", "err", err)
 			continue
 		}
 
@@ -111,8 +111,23 @@ func (bot *Bot) executeCallbacks(ctx context.Context, eventName events.EventName
 	callbacks := bot.events[eventName]
 	bot.lock.RUnlock()
 
-	log.Debug("正在执行事件的回调: " + eventName)
+	log.Debug("正在执行事件的回调: ", "EventName", eventName)
 	for _, callback := range callbacks {
 		go callback(ctx, event)
+	}
+}
+
+func SetLogLevel(level string) {
+	switch strings.ToLower(level) {
+	case "debug":
+		log.SetLevel(log.DebugLevel)
+	case "info":
+		log.SetLevel(log.InfoLevel)
+	case "warn":
+		log.SetLevel(log.WarnLevel)
+	case "error":
+		log.SetLevel(log.ErrorLevel)
+	case "fatal":
+		log.SetLevel(log.FatalLevel)
 	}
 }
