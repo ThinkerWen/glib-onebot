@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -55,7 +56,7 @@ func (bot *Bot) ListenAndWait(ctx context.Context) error {
 		}
 	}()
 
-	bot.done = make(chan struct{})
+	bot.done = make(chan struct{}, 1)
 	var err error
 	bot.client, _, err = websocket.DefaultDialer.DialContext(ctx, bot.API, nil)
 	if err != nil {
@@ -113,7 +114,17 @@ func (bot *Bot) executeCallbacks(ctx context.Context, eventName events.EventName
 
 	log.Debug("正在执行事件的回调: ", "EventName", eventName)
 	for _, callback := range callbacks {
-		go callback(ctx, event)
+		go func(cb events.EventCallbackFunc) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Error("回调函数出现异常:", "err", r)
+					buf := make([]byte, 1<<16)
+					stackSize := runtime.Stack(buf, false)
+					log.Error(string(buf[:stackSize]))
+				}
+			}()
+			cb(ctx, event)
+		}(callback)
 	}
 }
 
